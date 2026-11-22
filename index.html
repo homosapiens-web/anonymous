@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨韻盲盒｜匿名寫文關鍵詞抽籤分配器</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts: Noto Serif TC & Noto Sans TC 營造文青寫作氛圍 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+    <!-- 引入 Phosphor Icons 圖示庫 -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'sans-serif'],
+                        serif: ['"Noto Serif TC"', 'serif'],
+                    },
+                    colors: {
+                        paper: '#FAF8F5',
+                        ink: '#2C2A29',
+                        terracotta: '#C86D51',
+                        terracottaDark: '#A8553C',
+                        sage: '#6B8E78',
+                        sand: '#EAE4DC',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #FAF8F5;
+            color: #2C2A29;
+            background-image: radial-gradient(#E5DFD5 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(44, 42, 41, 0.06), 0 8px 10px -6px rgba(44, 42, 41, 0.04);
+        }
+        /* 卡片翻轉與彈出動畫 */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.95) translateY(8px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop {
+            animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-terracotta selection:text-white">
+
+    <!-- 頂部導覽列 -->
+    <header class="w-full border-b border-sand bg-paper/90 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="goHome()">
+                <div class="w-9 h-9 rounded-xl bg-terracotta text-white flex items-center justify-center shadow-sm">
+                    <i class="ph-bold ph-feather text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-serif font-bold text-lg tracking-wide text-ink leading-tight">墨韻盲盒</h1>
+                    <p class="text-[11px] text-stone-500">匿名寫文關鍵詞抽籤器</p>
+                </div>
+            </div>
+
+            <!-- 房間狀態指示器（進入房間後顯示） -->
+            <div id="header-room-badge" class="hidden items-center gap-2">
+                <span class="text-xs text-stone-500 hidden sm:inline">房間代碼：</span>
+                <button onclick="copyShareLink()" class="flex items-center gap-1.5 bg-sand/70 hover:bg-sand text-ink px-3 py-1.5 rounded-lg text-sm font-mono font-bold transition active:scale-95" title="點擊複製邀請連結">
+                    <span id="header-room-code">----</span>
+                    <i class="ph-bold ph-link text-terracotta"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="flex-grow w-full max-w-xl mx-auto px-4 py-8 flex flex-col justify-center">
+
+        <!-- 載入中畫面 -->
+        <div id="view-loading" class="text-center py-16">
+            <i class="ph-bold ph-spinner animate-spin text-4xl text-terracotta mb-3"></i>
+            <p class="text-stone-600 text-sm">正在連線至雲端書房...</p>
+        </div>
+
+        <!-- ==================== 畫面 0：首頁（建立或加入房間） ==================== -->
+        <section id="view-home" class="hidden animate-pop space-y-6">
+            <div class="bg-white rounded-3xl p-6 sm:p-8 card-shadow border border-sand/80 text-center">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-terracotta/10 text-terracotta mb-4">
+                    <i class="ph-duotone ph-scroll text-3xl"></i>
+                </div>
+                <h2 class="font-serif text-2xl sm:text-3xl font-bold text-ink mb-2">每人一詞，匿名創作</h2>
+                <p class="text-stone-500 text-sm leading-relaxed max-w-md mx-auto mb-8">
+                    各自秘密寫下一個關鍵詞，系統將隨機打亂分配（保證不抽到自己）。寫完後一起猜猜哪篇文是誰的傑作！
+                </p>
+
+                <!-- 建立新房間按鈕 -->
+                <button id="btn-create-room" onclick="createNewRoom()" class="w-full py-4 px-6 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition transform active:scale-[0.99] flex items-center justify-center gap-2 text-base">
+                    <i class="ph-bold ph-plus-circle text-xl"></i>
+                    <span>建立新抽籤房間</span>
+                </button>
+
+                <div class="relative my-7">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-sand"></div>
+                    </div>
+                    <div class="relative flex justify-center text-xs">
+                        <span class="bg-white px-3 text-stone-400">或是輸入朋友分享的房間代碼</span>
+                    </div>
+                </div>
+
+                <!-- 加入現有房間表單 -->
+                <form onsubmit="handleJoinRoom(event)" class="flex gap-2">
+                    <input type="text" id="input-room-code" maxlength="6" placeholder="輸入 6 碼房間代碼" class="flex-1 bg-paper border border-stone-300 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20 rounded-xl px-4 py-3 text-center font-mono text-lg uppercase tracking-widest outline-none transition" required>
+                    <button type="submit" class="bg-ink hover:bg-stone-800 text-white font-medium px-6 py-3 rounded-xl transition active:scale-95 whitespace-nowrap">
+                        加入房間
+                    </button>
+                </form>
+            </div>
+
+            <!-- 玩法三步驟說明 -->
+            <div class="grid grid-cols-3 gap-3 text-center text-xs text-stone-600">
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-sand/60">
+                    <span class="block font-serif font-bold text-terracotta text-base mb-1">01. 出題</span>
+                    輸入名字與關鍵詞，內容全程保密
+                </div>
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-sand/60">
+                    <span class="block font-serif font-bold text-terracotta text-base mb-1">02. 錯排</span>
+                    一鍵隨機分配，絕不會抽到自己
+                </div>
+                <div class="bg-white/70 p-3.5 rounded-2xl border border-sand/60">
+                    <span class="block font-serif font-bold text-terracotta text-base mb-1">03. 認領</span>
+                    點選自己名字，查看專屬寫作題目
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 畫面 1：出題階段（填寫參加者與關鍵詞） ==================== -->
+        <section id="view-collecting" class="hidden animate-pop space-y-5">
+            <!-- 分享邀請卡片 -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 card-shadow border border-sand flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-center sm:text-left">
+                    <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-sage bg-sage/10 px-2.5 py-0.5 rounded-full mb-1">階段一：秘密出題中</span>
+                    <p class="text-sm text-stone-600">分享連結給朋友，大家可同時進來填詞！</p>
+                </div>
+                <button onclick="copyShareLink()" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-paper hover:bg-sand/60 border border-stone-300 text-ink font-medium px-4 py-2.5 rounded-xl text-sm transition active:scale-95 shrink-0">
+                    <i class="ph-bold ph-copy text-terracotta"></i>
+                    <span>複製邀請連結</span>
+                </button>
+            </div>
+
+            <!-- 填寫表單卡片 -->
+            <div class="bg-white rounded-3xl p-6 card-shadow border border-sand">
+                <h2 class="font-serif text-xl font-bold text-ink mb-4 flex items-center gap-2">
+                    <i class="ph-duotone ph-pencil-line text-terracotta text-2xl"></i>
+                    <span>放入你的關鍵詞</span>
+                </h2>
+                <form id="form-add-entry" onsubmit="handleAddEntry(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-stone-600 mb-1.5">你的名字（或暱稱）</label>
+                        <input type="text" id="input-player-name" maxlength="15" placeholder="例如：小明、阿美" class="w-full bg-paper border border-stone-300 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20 rounded-xl px-4 py-3 text-sm outline-none transition" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-stone-600 mb-1.5 flex justify-between">
+                            <span>要出的關鍵詞</span>
+                            <span class="text-stone-400 font-normal flex items-center gap-1"><i class="ph-fill ph-lock-key"></i> 送出後將自動隱藏</span>
+                        </label>
+                        <input type="text" id="input-keyword" maxlength="30" placeholder="例如：半夜的便利商店、會說話的仙人掌" class="w-full bg-paper border border-stone-300 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20 rounded-xl px-4 py-3 text-sm outline-none transition" required>
+                    </div>
+                    <button type="submit" id="btn-submit-entry" class="w-full py-3.5 bg-ink hover:bg-stone-800 text-white font-bold rounded-xl transition active:scale-[0.99] flex items-center justify-center gap-2 text-sm shadow-sm">
+                        <i class="ph-bold ph-paper-plane-tilt"></i>
+                        <span>送出並放入盲盒</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- 已加入參加者名單 -->
+            <div class="bg-white rounded-3xl p-6 card-shadow border border-sand">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-serif font-bold text-base text-ink flex items-center gap-2">
+                        <i class="ph-duotone ph-users-three text-sage text-xl"></i>
+                        <span>已就位的寫手</span>
+                    </h3>
+                    <span id="participant-count" class="text-xs font-bold bg-sand text-ink px-2.5 py-1 rounded-full">0 人</span>
+                </div>
+
+                <!-- 名單列表 -->
+                <div id="participants-list" class="space-y-2.5">
+                    <!-- 動態生成參加者項目 -->
+                </div>
+
+                <!-- 空狀態提示 -->
+                <div id="empty-participants" class="text-center py-6 text-stone-400 text-sm">
+                    目前還沒有人放入關鍵詞，搶頭香吧！
+                </div>
+
+                <!-- 開始分配按鈕區 -->
+                <div class="mt-6 pt-5 border-t border-sand">
+                    <button id="btn-start-draw" onclick="confirmStartDraw()" disabled class="w-full py-4 px-6 bg-terracotta disabled:bg-stone-300 disabled:cursor-not-allowed hover:bg-terracottaDark text-white font-bold rounded-2xl shadow-md transition transform active:scale-[0.99] flex items-center justify-center gap-2 text-base">
+                        <i class="ph-bold ph-shuffle text-xl"></i>
+                        <span id="btn-start-draw-text">至少需 2 人才能開始分配</span>
+                    </button>
+                    <p class="text-[11px] text-center text-stone-400 mt-2">
+                        按下後將鎖定題目，並確保每個人都不會抽到自己出的詞
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 畫面 2：抽籤結果查詢階段（點選名字認領） ==================== -->
+        <section id="view-assigned" class="hidden animate-pop space-y-6">
+            <!-- 狀態橫幅 -->
+            <div class="bg-sage/15 border border-sage/30 rounded-2xl p-4 text-center">
+                <span class="inline-flex items-center gap-1.5 text-xs font-bold text-sage bg-white px-3 py-1 rounded-full shadow-xs mb-2">
+                    <i class="ph-fill ph-check-circle"></i> 題目已隨機分配完成
+                </span>
+                <h2 class="font-serif text-xl sm:text-2xl font-bold text-ink">請點選「你的名字」</h2>
+                <p class="text-xs sm:text-sm text-stone-600 mt-1">查看你分配到的寫作關鍵詞，請勿偷看別人的喔！</p>
+            </div>
+
+            <!-- 參加者按鈕網格 -->
+            <div id="claim-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <!-- 動態生成參加者卡片按鈕 -->
+            </div>
+
+            <!-- 底部操作區（分享結果頁連結 & 重新開局） -->
+            <div class="bg-white/80 rounded-2xl p-4 border border-sand flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <button onclick="copyShareLink()" class="w-full sm:w-auto flex items-center justify-center gap-1.5 text-stone-600 hover:text-ink font-medium py-2 px-3 rounded-lg hover:bg-sand/50 transition">
+                    <i class="ph-bold ph-share-network text-terracotta text-base"></i>
+                    <span>複製此頁連結傳給大家領題</span>
+                </button>
+                <button onclick="confirmResetRoom()" class="w-full sm:w-auto flex items-center justify-center gap-1.5 text-stone-400 hover:text-red-600 py-2 px-3 rounded-lg hover:bg-red-50 transition">
+                    <i class="ph-bold ph-arrow-counter-clockwise text-base"></i>
+                    <span>重新開局 / 重設房間</span>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="w-full py-4 text-center text-xs text-stone-400">
+        <p>祝大家文思泉湧，寫出讓人猜不透的好故事 ✍️</p>
+    </footer>
+
+    <!-- ==================== 互動彈窗（防偷看確認 / 顯示結果 / 通用確認） ==================== -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-ink/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        
+        <!-- 彈窗 A：防偷看身分確認 -->
+        <div id="modal-verify" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 card-shadow animate-pop text-center">
+            <div class="w-14 h-14 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-4">
+                <i class="ph-duotone ph-eye-slash text-3xl"></i>
+            </div>
+            <h3 class="font-serif text-xl font-bold text-ink mb-2">身分確認</h3>
+            <p class="text-sm text-stone-600 leading-relaxed mb-6">
+                確定你是 <span id="verify-target-name" class="font-bold text-terracotta text-base px-1"></span> 嗎？<br>
+                <span class="text-xs text-stone-400">請遵守遊戲禮儀，不要偷看別人的題目喔！</span>
+            </p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 px-4 bg-sand/70 hover:bg-sand text-ink font-medium rounded-xl text-sm transition">
+                    點錯了，返回
+                </button>
+                <button id="btn-confirm-reveal" class="flex-1 py-3 px-4 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm shadow-sm transition">
+                    是的，翻開題目
+                </button>
+            </div>
+        </div>
+
+        <!-- 彈窗 B：翻牌顯示抽到的關鍵詞 -->
+        <div id="modal-result" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 card-shadow animate-pop text-center border-2 border-terracotta/20">
+            <span class="inline-block text-xs font-bold text-stone-400 mb-1">
+                <span id="result-player-name" class="text-ink"></span> 的專屬寫作關鍵詞
+            </span>
+            
+            <!-- 關鍵詞展示框 -->
+            <div class="my-5 bg-paper border-2 border-dashed border-terracotta/40 rounded-2xl p-6 relative">
+                <i class="ph-duotone ph-quotes text-2xl text-terracotta/30 absolute top-3 left-3"></i>
+                <p id="result-keyword-text" class="font-serif text-2xl sm:text-3xl font-bold text-terracotta break-words py-2">
+                    關鍵詞載入中
+                </p>
+                <i class="ph-duotone ph-quotes text-2xl text-terracotta/30 absolute bottom-3 right-3 rotate-180"></i>
+            </div>
+
+            <p class="text-xs text-stone-500 mb-6">
+                🤫 出題者身分已隱藏，快去把這個詞寫進你的故事裡吧！
+            </p>
+
+            <div class="space-y-2.5">
+                <button onclick="copyAssignedKeyword()" class="w-full py-3 px-4 bg-ink hover:bg-stone-800 text-white font-bold rounded-xl text-sm transition flex items-center justify-center gap-2 active:scale-95">
+                    <i class="ph-bold ph-copy"></i>
+                    <span>一鍵複製關鍵詞</span>
+                </button>
+                <button onclick="closeModal()" class="w-full py-3 px-4 bg-sand/60 hover:bg-sand text-stone-700 font-medium rounded-xl text-sm transition">
+                    收起並返回選擇畫面
+                </button>
+            </div>
+        </div>
+
+        <!-- 彈窗 C：通用二次確認視窗（取代 browser confirm） -->
+        <div id="modal-confirm" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 card-shadow animate-pop text-center">
+            <div class="w-12 h-12 rounded-full bg-terracotta/10 text-terracotta flex items-center justify-center mx-auto mb-3">
+                <i class="ph-bold ph-warning-circle text-2xl"></i>
+            </div>
+            <h3 id="confirm-title" class="font-serif text-lg font-bold text-ink mb-2">確認操作</h3>
+            <p id="confirm-message" class="text-sm text-stone-600 mb-6">確定要執行此動作嗎？</p>
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-2.5 px-4 bg-sand/70 hover:bg-sand text-ink font-medium rounded-xl text-sm transition">
+                    取消
+                </button>
+                <button id="btn-confirm-action" class="flex-1 py-2.5 px-4 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm transition">
+                    確定
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast 輕提示通知 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-sm px-5 py-3 rounded-full shadow-lg z-50 transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 whitespace-nowrap">
+        <i id="toast-icon" class="ph-fill ph-check-circle text-sage text-lg"></i>
+        <span id="toast-message">訊息提示</span>
+    </div>
+
+    <!-- ==================== Firebase 與核心應用程式邏輯 ==================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. 初始化 Firebase 與環境變數
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'anonymous-writing-draw';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+        let app, auth, db;
+        let currentUser = null;
+        let currentRoomCode = null;
+        let currentRoomData = null;
+        let unsubscribeRoom = null;
+        let currentRevealedKeyword = '';
+
+        // 啟動應用程式
+        async function initApp() {
+            if (!firebaseConfig) {
+                showToast('找不到 Firebase 設定，請確認執行環境', 'error');
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // 優先使用自訂 Token 登入，否則匿名登入（遵循 Rule 3）
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        checkUrlRoomParam();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase 初始化錯誤:", error);
+                showToast('雲端連線失敗，請重新整理頁面', 'error');
+            }
+        }
+        // 檢查網址是否帶有 ?room=XXXX 參數（同時相容 #room=XXXX）
+        function checkUrlRoomParam() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            const roomParam = urlParams.get('room') || hashParams.get('room');
+            if (roomParam && roomParam.trim().length > 0) {
+                joinRoomByCode(roomParam.trim().toUpperCase());
+            } else {
+                switchView('home');
+            }
+        }
+
+        // 取得房間文件參考（遵循 Rule 1: /artifacts/{appId}/public/data/{collectionName}/{documentId}）
+        function getRoomDocRef(roomCode) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+        }
+
+        // 產生易讀且不易混淆的 6 碼房間代碼
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // 切換畫面視圖
+        function switchView(viewName) {
+            const views = ['loading', 'home', 'collecting', 'assigned'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) {
+                    if (v === viewName) {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                }
+            });
+
+            // 控制頂部房間代碼徽章顯示
+            const badge = document.getElementById('header-room-badge');
+            const codeText = document.getElementById('header-room-code');
+            if (currentRoomCode && (viewName === 'collecting' || viewName === 'assigned')) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                codeText.textContent = currentRoomCode;
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+            }
+        }
+
+        // 更新網址列參數（相容 blob: 與 iframe 沙盒環境）
+        function updateUrlParam(roomCode) {
+            try {
+                // blob: 協議不允許直接修改 query string，改以安全方式處理
+                if (window.location.protocol === 'blob:') {
+                    return;
+                }
+                const url = new URL(window.location.href);
+                if (roomCode) {
+                    url.searchParams.set('room', roomCode);
+                } else {
+                    url.searchParams.delete('room');
+                }
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {
+                // 在受限的沙盒環境中靜默忽略網址列更新，不影響建立與加入房間流程
+                console.warn('無法更新瀏覽器網址列（可能處於沙盒預覽環境）:', e.message);
+            }
+        }
+
+        // ==================== 房間操作功能 ====================
+
+        // 返回首頁
+        window.goHome = function() {
+            if (unsubscribeRoom) {
+                unsubscribeRoom();
+                unsubscribeRoom = null;
+            }
+            currentRoomCode = null;
+            currentRoomData = null;
+            updateUrlParam(null);
+            switchView('home');
+        };
+
+        // 建立新房間
+        window.createNewRoom = async function() {
+            if (!currentUser) return;
+            const btn = document.getElementById('btn-create-room');
+            btn.disabled = true;
+
+            try {
+                let newCode = generateRoomCode();
+                let roomRef = getRoomDocRef(newCode);
+                let snap = await getDoc(roomRef);
+
+                // 若代碼恰巧重複則重新產生
+                while (snap.exists()) {
+                    newCode = generateRoomCode();
+                    roomRef = getRoomDocRef(newCode);
+                    snap = await getDoc(roomRef);
+                }
+
+                const initialData = {
+                    roomCode: newCode,
+                    status: 'collecting', // 'collecting' | 'assigned'
+                    createdAt: Date.now(),
+                    entries: [] // { id, name, keyword, assignedKeyword, assignedFrom }
+                };
+
+                await setDoc(roomRef, initialData);
+                subscribeToRoom(newCode);
+                showToast(`已建立房間 ${newCode}！`);
+            } catch (error) {
+                console.error("建立房間失敗:", error);
+                showToast('建立房間失敗，請稍後再試', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        // 透過表單加入房間
+        window.handleJoinRoom = function(event) {
+            event.preventDefault();
+            const input = document.getElementById('input-room-code');
+            const code = input.value.trim().toUpperCase();
+            if (!code) return;
+            joinRoomByCode(code);
+        };
+
+        // 加入指定代碼房間
+        async function joinRoomByCode(code) {
+            if (!currentUser) return;
+            switchView('loading');
+
+            try {
+                const roomRef = getRoomDocRef(code);
+                const snap = await getDoc(roomRef);
+
+                if (!snap.exists()) {
+                    showToast(`找不到代碼為「${code}」的房間`, 'error');
+                    updateUrlParam(null);
+                    switchView('home');
+                    return;
+                }
+
+                subscribeToRoom(code);
+            } catch (error) {
+                console.error("加入房間錯誤:", error);
+                showToast('無法加入房間，請檢查網路連線', 'error');
+                switchView('home');
+            }
+        }
+
+        // 即時監聽房間資料變化
+        function subscribeToRoom(code) {
+            if (unsubscribeRoom) {
+                unsubscribeRoom();
+            }
+
+            currentRoomCode = code;
+            updateUrlParam(code);
+            const roomRef = getRoomDocRef(code);
+
+            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    showToast('此房間已被刪除或不存在', 'error');
+                    goHome();
+                    return;
+                }
+
+                currentRoomData = docSnap.data();
+                renderRoomState();
+            }, (error) => {
+                console.error("監聽房間資料失敗:", error);
+                showToast('即時同步中斷，請重新整理', 'error');
+            });
+        }
+
+        // 根據房間狀態渲染對應 UI
+        function renderRoomState() {
+            if (!currentRoomData) return;
+
+            if (currentRoomData.status === 'collecting') {
+                switchView('collecting');
+                renderCollectingView();
+            } else if (currentRoomData.status === 'assigned') {
+                switchView('assigned');
+                renderAssignedView();
+            }
+        }
+
+        // ==================== 階段一：出題與名單渲染 ====================
+
+        function renderCollectingView() {
+            const entries = currentRoomData.entries || [];
+            const listEl = document.getElementById('participants-list');
+            const emptyEl = document.getElementById('empty-participants');
+            const countEl = document.getElementById('participant-count');
+            const startBtn = document.getElementById('btn-start-draw');
+            const startBtnText = document.getElementById('btn-start-draw-text');
+
+            countEl.textContent = `${entries.length} 人`;
+
+            if (entries.length === 0) {
+                listEl.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+                listEl.innerHTML = entries.map((entry, idx) => `
+                    <div class="flex items-center justify-between bg-paper border border-sand/90 px-4 py-3 rounded-xl animate-pop">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 rounded-full bg-sage/20 text-sage font-bold text-xs flex items-center justify-center">
+                                ${idx + 1}
+                            </span>
+                            <span class="font-bold text-ink text-sm">${escapeHtml(entry.name)}</span>
+                            <span class="text-xs text-stone-400 flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-sand">
+                                <i class="ph-fill ph-lock-key text-terracotta"></i> 已出題
+                            </span>
+                        </div>
+                        <button onclick="confirmDeleteEntry('${entry.id}', '${escapeHtml(entry.name)}')" class="text-stone-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition" title="刪除此參加者">
+                            <i class="ph-bold ph-trash text-base"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            // 檢查人數是否達 2 人以上
+            if (entries.length >= 2) {
+                startBtn.disabled = false;
+                startBtnText.textContent = `開始隨機分配（共 ${entries.length} 人）`;
+            } else {
+                startBtn.disabled = true;
+                startBtnText.textContent = `至少需 2 人才能開始分配`;
+            }
+        }
+
+        // 新增參加者與關鍵詞
+        window.handleAddEntry = async function(event) {
+            event.preventDefault();
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+
+            const nameInput = document.getElementById('input-player-name');
+            const keywordInput = document.getElementById('input-keyword');
+            const submitBtn = document.getElementById('btn-submit-entry');
+
+            const name = nameInput.value.trim();
+            const keyword = keywordInput.value.trim();
+
+            if (!name || !keyword) return;
+
+            // 檢查是否已有同名參加者
+            const entries = currentRoomData.entries || [];
+            if (entries.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+                showToast('這個名字已經有人使用了，請換個暱稱或加上代號！', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+
+            try {
+                const newEntry = {
+                    id: crypto.randomUUID(),
+                    name: name,
+                    keyword: keyword,
+                    assignedKeyword: null,
+                    assignedFrom: null
+                };
+
+                const roomRef = getRoomDocRef(currentRoomCode);
+                // 重新讀取最新資料避免併發覆蓋
+                const latestSnap = await getDoc(roomRef);
+                const latestEntries = latestSnap.exists() ? (latestSnap.data().entries || []) : [];
+
+                if (latestSnap.data().status !== 'collecting') {
+                    showToast('房間已經開始分配題目囉！', 'error');
+                    return;
+                }
+
+                await updateDoc(roomRef, {
+                    entries: [...latestEntries, newEntry]
+                });
+
+                nameInput.value = '';
+                keywordInput.value = '';
+                showToast(`「${name}」的關鍵詞已秘密放入盲盒！`);
+            } catch (error) {
+                console.error("新增關鍵詞失敗:", error);
+                showToast('送出失敗，請再試一次', 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        };
+
+        // 確認刪除項目
+        window.confirmDeleteEntry = function(entryId, entryName) {
+            openConfirmModal(
+                '移除參加者',
+                `確定要刪除「${entryName}」與他出的關鍵詞嗎？`,
+                async () => {
+                    try {
+                        const roomRef = getRoomDocRef(currentRoomCode);
+                        const latestSnap = await getDoc(roomRef);
+                        if (!latestSnap.exists()) return;
+
+                        const updatedEntries = (latestSnap.data().entries || []).filter(e => e.id !== entryId);
+                        await updateDoc(roomRef, { entries: updatedEntries });
+                        showToast(`已移除「${entryName}」`);
+                    } catch (error) {
+                        console.error("刪除失敗:", error);
+                        showToast('刪除失敗，請稍後再試', 'error');
+                    }
+                }
+            );
+        };
+
+        // ==================== 階段二：錯排演算法隨機分配 ====================
+
+        window.confirmStartDraw = function() {
+            const entries = currentRoomData?.entries || [];
+            if (entries.length < 2) return;
+
+            openConfirmModal(
+                '確定開始隨機分配嗎？',
+                `目前共有 ${entries.length} 位參加者。分配後將鎖定所有題目，且每個人絕對不會抽到自己出的詞！`,
+                executeDerangementDraw
+            );
+        };
+
+        /**
+         * 錯排演算法 (Derangement / Sattolo's Algorithm)
+         * 保證陣列中每個元素的新位置都不等於原本的索引 (permutation[i] !== i)
+         * 且形成單一隨機循環或完全無不動點的隨機排列，均勻分布。
+         */
+        function generateDerangement(n) {
+            // 使用 Fisher-Yates 變體（rejection sampling 或構造法）確保所有錯排機率完全均等
+            const indices = Array.from({ length: n }, (_, i) => i);
+            while (true) {
+                // 標準 Fisher-Yates 洗牌
+                for (let i = n - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [indices[i], indices[j]] = [indices[j], indices[i]];
+                }
+                // 驗證是否沒有任何一個位置等於原本的索引
+                let isValidDerangement = true;
+                for (let i = 0; i < n; i++) {
+                    if (indices[i] === i) {
+                        isValidDerangement = false;
+                        break;
+                    }
+                }
+                if (isValidDerangement) {
+                    return indices;
+                }
+            }
+        }
+
+        async function executeDerangementDraw() {
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                const latestSnap = await getDoc(roomRef);
+                if (!latestSnap.exists()) return;
+
+                const entries = latestSnap.data().entries || [];
+                if (entries.length < 2) {
+                    showToast('人數不足 2 人，無法分配', 'error');
+                    return;
+                }
+
+                // 取得錯排索引陣列
+                const derangedIndices = generateDerangement(entries.length);
+
+                // 寫入每個人分配到的關鍵詞
+                const assignedEntries = entries.map((person, idx) => {
+                    const targetDonor = entries[derangedIndices[idx]];
+                    return {
+                        ...person,
+                        assignedKeyword: targetDonor.keyword,
+                        assignedFrom: targetDonor.name // 保留欄位供未來擴充揭曉用，目前前端不顯示
+                    };
+                });
+
+                await updateDoc(roomRef, {
+                    status: 'assigned',
+                    entries: assignedEntries,
+                    assignedAt: Date.now()
+                });
+
+                showToast('🎉 隨機分配完成！大家可以開始領題囉！');
+            } catch (error) {
+                console.error("分配失敗:", error);
+                showToast('分配過程發生錯誤，請重試', 'error');
+            }
+        }
+
+        // ==================== 階段三：選擇身分查看結果 ====================
+
+        function renderAssignedView() {
+            const entries = currentRoomData.entries || [];
+            const gridEl = document.getElementById('claim-grid');
+
+            gridEl.innerHTML = entries.map(entry => `
+                <button onclick="openVerifyModal('${entry.id}')" class="group bg-white hover:bg-terracotta border border-sand hover:border-terracotta rounded-2xl p-5 card-shadow transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 flex flex-col items-center justify-center gap-2 text-center">
+                    <div class="w-11 h-11 rounded-full bg-paper group-hover:bg-white/20 text-terracotta group-hover:text-white flex items-center justify-center transition">
+                        <i class="ph-duotone ph-user-circle text-2xl"></i>
+                    </div>
+                    <span class="font-serif font-bold text-base text-ink group-hover:text-white truncate w-full">
+                        ${escapeHtml(entry.name)}
+                    </span>
+                    <span class="text-[11px] text-stone-400 group-hover:text-white/80">
+                        點擊查看題目
+                    </span>
+                </button>
+            `).join('');
+        }
+
+        // 開啟防偷看確認彈窗
+        window.openVerifyModal = function(entryId) {
+            const entries = currentRoomData?.entries || [];
+            const target = entries.find(e => e.id === entryId);
+            if (!target) return;
+
+            document.getElementById('verify-target-name').textContent = target.name;
+            const confirmBtn = document.getElementById('btn-confirm-reveal');
+            
+            confirmBtn.onclick = () => {
+                showAssignedResult(target);
+            };
+
+            showModal('verify');
+        };
+
+        // 翻牌顯示關鍵詞
+        function showAssignedResult(entry) {
+            currentRevealedKeyword = entry.assignedKeyword || '（無關鍵詞）';
+            document.getElementById('result-player-name').textContent = entry.name;
+            document.getElementById('result-keyword-text').textContent = currentRevealedKeyword;
+            showModal('result');
+        }
+
+        // 複製抽到的關鍵詞
+        window.copyAssignedKeyword = function() {
+            if (!currentRevealedKeyword) return;
+            copyTextToClipboard(currentRevealedKeyword, `已複製關鍵詞：「${currentRevealedKeyword}」`);
+        };
+
+        // 重新開局 / 重設房間
+        window.confirmResetRoom = function() {
+            openConfirmModal(
+                '重新開局 / 重設房間',
+                '確定要清空目前的分配結果並回到出題階段嗎？（可選擇保留或清除名單，此動作將清空本局紀錄重新開始）',
+                async () => {
+                    try {
+                        const roomRef = getRoomDocRef(currentRoomCode);
+                        await updateDoc(roomRef, {
+                            status: 'collecting',
+                            entries: []
+                        });
+                        showToast('房間已重設，可以開始新一輪出題囉！');
+                    } catch (error) {
+                        console.error("重設房間失敗:", error);
+                        showToast('重設失敗，請稍後再試', 'error');
+                    }
+                }
+            );
+        };
+
+        // ==================== 彈窗與工具函式 ====================
+
+        function showModal(type) {
+            const backdrop = document.getElementById('modal-backdrop');
+            const modals = ['verify', 'result', 'confirm'];
+            
+            modals.forEach(m => {
+                const el = document.getElementById(`modal-${m}`);
+                if (m === type) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('flex');
+        }
+
+        window.closeModal = function() {
+            const backdrop = document.getElementById('modal-backdrop');
+            backdrop.classList.add('hidden');
+            backdrop.classList.remove('flex');
+        };
+
+        // 點擊背景遮罩關閉彈窗
+        document.getElementById('modal-backdrop').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        function openConfirmModal(title, message, onConfirmCallback) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            const actionBtn = document.getElementById('btn-confirm-action');
+            
+            actionBtn.onclick = async () => {
+                closeModal();
+                await onConfirmCallback();
+            };
+
+            showModal('confirm');
+        }
+
+        // 複製房間分享連結
+        window.copyShareLink = function() {
+            if (!currentRoomCode) return;
+            let shareUrl = '';
+            if (window.location.protocol === 'blob:') {
+                // 若在 blob 預覽環境，提供房間代碼提示，避免複製無效的 blob: 網址
+                copyTextToClipboard(currentRoomCode, `目前處於預覽模式，已複製房間代碼「${currentRoomCode}」！`);
+                return;
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('room', currentRoomCode);
+            shareUrl = url.toString();
+            copyTextToClipboard(shareUrl, '已複製房間邀請連結，快貼到群組吧！');
+        };
+
+        // 相容 iframe 環境的剪貼簿複製函式
+        function copyTextToClipboard(text, successMsg) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(successMsg);
+                } else {
+                    showToast('複製失敗，請手動複製網址', 'error');
+                }
+            } catch (err) {
+                showToast('複製失敗，請手動複製網址', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Toast 提示訊息
+        let toastTimeout;
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+
+            msgEl.textContent = message;
+            if (type === 'error') {
+                iconEl.className = 'ph-fill ph-warning-circle text-red-400 text-lg';
+            } else {
+                iconEl.className = 'ph-fill ph-check-circle text-sage text-lg';
+            }
+
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // XSS 防護轉義
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // 啟動應用程式
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
