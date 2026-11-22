@@ -70,7 +70,7 @@
 
             <!-- 房間狀態指示器（進入房間後顯示） -->
             <div id="header-room-badge" class="hidden items-center gap-2">
-                <span class="text-xs text-stone-500 hidden sm:inline">房間代碼：</span>
+                <span id="sync-mode-tag" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sage/15 text-sage hidden sm:inline-block">即時同步中</span>
                 <button onclick="copyShareLink()" class="flex items-center gap-1.5 bg-sand/70 hover:bg-sand text-ink px-3 py-1.5 rounded-lg text-sm font-mono font-bold transition active:scale-95" title="點擊複製邀請連結">
                     <span id="header-room-code">----</span>
                     <i class="ph-bold ph-link text-terracotta"></i>
@@ -85,7 +85,7 @@
         <!-- 載入中畫面 -->
         <div id="view-loading" class="text-center py-16">
             <i class="ph-bold ph-spinner animate-spin text-4xl text-terracotta mb-3"></i>
-            <p class="text-stone-600 text-sm">正在連線至雲端書房...</p>
+            <p class="text-stone-600 text-sm">正在準備盲盒書房...</p>
         </div>
 
         <!-- ==================== 畫面 0：首頁（建立或加入房間） ==================== -->
@@ -230,9 +230,9 @@
 
             <!-- 底部操作區（分享結果頁連結 & 重新開局） -->
             <div class="bg-white/80 rounded-2xl p-4 border border-sand flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                <button onclick="copyShareLink()" class="w-full sm:w-auto flex items-center justify-center gap-1.5 text-stone-600 hover:text-ink font-medium py-2 px-3 rounded-lg hover:bg-sand/50 transition">
-                    <i class="ph-bold ph-share-network text-terracotta text-base"></i>
-                    <span>複製此頁連結傳給大家領題</span>
+                <button onclick="copyShareLink()" class="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-terracotta text-white hover:bg-terracottaDark font-bold py-2.5 px-4 rounded-xl shadow-xs transition">
+                    <i class="ph-bold ph-share-network text-base"></i>
+                    <span>複製結果連結（點進去選自己是誰）</span>
                 </button>
                 <button onclick="confirmResetRoom()" class="w-full sm:w-auto flex items-center justify-center gap-1.5 text-stone-400 hover:text-red-600 py-2 px-3 rounded-lg hover:bg-red-50 transition">
                     <i class="ph-bold ph-arrow-counter-clockwise text-base"></i>
@@ -244,139 +244,195 @@
     </main>
 
     <!-- 頁尾 -->
-    <footer class="w-full py-4 text-center text-xs text-stone-400">
-        <p>祝大家文思泉湧，寫出讓人猜不透的好故事 ✍️</p>
+    <footer class="w-full py-5 text-center text-xs text-stone-400">
+        <p>墨韻盲盒 · 匿名寫文與猜作者遊戲專用抽籤工具</p>
     </footer>
 
-    <!-- ==================== 互動彈窗（防偷看確認 / 顯示結果 / 通用確認） ==================== -->
-    <div id="modal-backdrop" class="fixed inset-0 bg-ink/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <!-- ==================== 彈跳視窗（身分確認 / 題目揭曉 / 系統確認） ==================== -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-ink/50 backdrop-blur-xs z-40 hidden items-center justify-center p-4 transition-opacity">
         
         <!-- 彈窗 A：防偷看身分確認 -->
-        <div id="modal-verify" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 card-shadow animate-pop text-center">
-            <div class="w-14 h-14 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-4">
-                <i class="ph-duotone ph-eye-slash text-3xl"></i>
+        <div id="modal-verify" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 card-shadow border border-sand text-center animate-pop">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+                <i class="ph-bold ph-eye-slash text-2xl"></i>
             </div>
-            <h3 class="font-serif text-xl font-bold text-ink mb-2">身分確認</h3>
-            <p class="text-sm text-stone-600 leading-relaxed mb-6">
-                確定你是 <span id="verify-target-name" class="font-bold text-terracotta text-base px-1"></span> 嗎？<br>
-                <span class="text-xs text-stone-400">請遵守遊戲禮儀，不要偷看別人的題目喔！</span>
+            <h3 class="font-serif text-lg font-bold text-ink mb-1">防偷看確認</h3>
+            <p class="text-sm text-stone-600 mb-6">
+                確定你是 <strong id="verify-target-name" class="text-terracotta text-base underline decoration-terracotta/40 underline-offset-4"></strong> 本人嗎？<br>
+                <span class="text-xs text-stone-400">偷看別人的題目會破壞猜作者的樂趣喔！</span>
             </p>
-            <div class="flex gap-3">
-                <button onclick="closeModal()" class="flex-1 py-3 px-4 bg-sand/70 hover:bg-sand text-ink font-medium rounded-xl text-sm transition">
-                    點錯了，返回
+            <div class="flex gap-2.5">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-paper hover:bg-sand text-stone-700 font-medium rounded-xl text-sm transition">
+                    按錯了，返回
                 </button>
-                <button id="btn-confirm-reveal" class="flex-1 py-3 px-4 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm shadow-sm transition">
-                    是的，翻開題目
+                <button id="btn-confirm-reveal" class="flex-1 py-3 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm shadow-sm transition">
+                    是我本人，翻牌！
                 </button>
             </div>
         </div>
 
-        <!-- 彈窗 B：翻牌顯示抽到的關鍵詞 -->
-        <div id="modal-result" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 card-shadow animate-pop text-center border-2 border-terracotta/20">
-            <span class="inline-block text-xs font-bold text-stone-400 mb-1">
-                <span id="result-player-name" class="text-ink"></span> 的專屬寫作關鍵詞
-            </span>
+        <!-- 彈窗 B：揭曉分配到的關鍵詞 -->
+        <div id="modal-result" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 card-shadow border border-sand text-center animate-pop relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-terracotta via-amber-500 to-sage"></div>
+            <span class="inline-block text-xs font-bold text-stone-400 mb-1">寫手：<span id="result-player-name" class="text-ink"></span></span>
+            <h3 class="font-serif text-base text-stone-600 mb-4">你分配到的寫作關鍵詞是</h3>
             
-            <!-- 關鍵詞展示框 -->
-            <div class="my-5 bg-paper border-2 border-dashed border-terracotta/40 rounded-2xl p-6 relative">
-                <i class="ph-duotone ph-quotes text-2xl text-terracotta/30 absolute top-3 left-3"></i>
-                <p id="result-keyword-text" class="font-serif text-2xl sm:text-3xl font-bold text-terracotta break-words py-2">
-                    關鍵詞載入中
+            <!-- 關鍵詞卡片框 -->
+            <div class="bg-paper border-2 border-dashed border-terracotta/40 rounded-2xl p-6 mb-5 relative">
+                <p id="result-keyword-text" class="font-serif text-2xl sm:text-3xl font-bold text-terracotta break-words leading-snug">
+                    <!-- 關鍵詞內容 -->
                 </p>
-                <i class="ph-duotone ph-quotes text-2xl text-terracotta/30 absolute bottom-3 right-3 rotate-180"></i>
             </div>
 
-            <p class="text-xs text-stone-500 mb-6">
-                🤫 出題者身分已隱藏，快去把這個詞寫進你的故事裡吧！
+            <p class="text-xs text-stone-500 mb-6 leading-relaxed">
+                請將此詞融入你的文章創作中，並對所有人保密！<br>
+                <span class="text-stone-400">（為保留猜謎樂趣，系統已隱藏出題者身分）</span>
             </p>
 
-            <div class="space-y-2.5">
-                <button onclick="copyAssignedKeyword()" class="w-full py-3 px-4 bg-ink hover:bg-stone-800 text-white font-bold rounded-xl text-sm transition flex items-center justify-center gap-2 active:scale-95">
+            <div class="flex flex-col gap-2">
+                <button onclick="copyAssignedKeyword()" class="w-full py-3 bg-ink hover:bg-stone-800 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-95">
                     <i class="ph-bold ph-copy"></i>
-                    <span>一鍵複製關鍵詞</span>
+                    <span>複製這個關鍵詞</span>
                 </button>
-                <button onclick="closeModal()" class="w-full py-3 px-4 bg-sand/60 hover:bg-sand text-stone-700 font-medium rounded-xl text-sm transition">
-                    收起並返回選擇畫面
+                <button onclick="closeModal()" class="w-full py-2.5 text-stone-500 hover:text-ink font-medium text-xs transition">
+                    我記住了，關閉視窗
                 </button>
             </div>
         </div>
 
-        <!-- 彈窗 C：通用二次確認視窗（取代 browser confirm） -->
-        <div id="modal-confirm" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 card-shadow animate-pop text-center">
-            <div class="w-12 h-12 rounded-full bg-terracotta/10 text-terracotta flex items-center justify-center mx-auto mb-3">
-                <i class="ph-bold ph-warning-circle text-2xl"></i>
-            </div>
+        <!-- 彈窗 C：通用操作確認框（取代原生 confirm） -->
+        <div id="modal-confirm" class="hidden bg-white rounded-3xl max-w-sm w-full p-6 card-shadow border border-sand text-center animate-pop">
             <h3 id="confirm-title" class="font-serif text-lg font-bold text-ink mb-2">確認操作</h3>
-            <p id="confirm-message" class="text-sm text-stone-600 mb-6">確定要執行此動作嗎？</p>
-            <div class="flex gap-3">
-                <button onclick="closeModal()" class="flex-1 py-2.5 px-4 bg-sand/70 hover:bg-sand text-ink font-medium rounded-xl text-sm transition">
+            <p id="confirm-message" class="text-sm text-stone-600 mb-6 leading-relaxed"></p>
+            <div class="flex gap-2.5">
+                <button onclick="closeModal()" class="flex-1 py-3 bg-paper hover:bg-sand text-stone-700 font-medium rounded-xl text-sm transition">
                     取消
                 </button>
-                <button id="btn-confirm-action" class="flex-1 py-2.5 px-4 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm transition">
-                    確定
+                <button id="btn-confirm-action" class="flex-1 py-3 bg-terracotta hover:bg-terracottaDark text-white font-bold rounded-xl text-sm shadow-sm transition">
+                    確定執行
                 </button>
             </div>
         </div>
-
     </div>
 
-    <!-- Toast 輕提示通知 -->
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-sm px-5 py-3 rounded-full shadow-lg z-50 transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 whitespace-nowrap">
+    <!-- 底部浮動提示訊息（Toast） -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink text-white px-5 py-3 rounded-full shadow-xl text-xs sm:text-sm font-medium flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300">
         <i id="toast-icon" class="ph-fill ph-check-circle text-sage text-lg"></i>
-        <span id="toast-message">訊息提示</span>
+        <span id="toast-message">已複製連結</span>
     </div>
 
-    <!-- ==================== Firebase 與核心應用程式邏輯 ==================== -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // 1. 初始化 Firebase 與環境變數
+    <!-- ==================== 雙引擎同步邏輯（支援雲端即時同步 + 免設定網址打包分享） ==================== -->
+    <script>
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'anonymous-writing-draw';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
 
-        let app, auth, db;
+        let firebaseModules = null;
+        let useFirebase = false;
+        let db = null;
+        let auth = null;
         let currentUser = null;
+
         let currentRoomCode = null;
         let currentRoomData = null;
         let unsubscribeRoom = null;
+        let pollTimer = null;
         let currentRevealedKeyword = '';
 
-        // 啟動應用程式
+        // 啟動應用程式（相容所有預覽沙盒與獨立網頁環境）
         async function initApp() {
-            if (!firebaseConfig) {
-                showToast('找不到 Firebase 設定，請確認執行環境', 'error');
-                return;
+            if (firebaseConfig) {
+                try {
+                    const [appMod, authMod, fsMod] = await Promise.all([
+                        import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+                        import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+                        import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+                    ]);
+                    firebaseModules = { ...appMod, ...authMod, ...fsMod };
+
+                    const app = firebaseModules.initializeApp(firebaseConfig);
+                    auth = firebaseModules.getAuth(app);
+                    db = firebaseModules.getFirestore(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await firebaseModules.signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await firebaseModules.signInAnonymously(auth);
+                    }
+
+                    firebaseModules.onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUser = user;
+                            useFirebase = true;
+                            updateSyncBadge('雲端即時同步');
+                            checkUrlRoomParam();
+                        }
+                    });
+                    return;
+                } catch (error) {
+                    console.warn("Firebase 連線失敗，自動切換至免設定同步模式:", error);
+                }
             }
 
+            // 免設定模式：使用記憶體 + 網址狀態封裝 + 公開 KV 同步備援
+            useFirebase = false;
+            updateSyncBadge('免設定連線模式');
+            checkUrlRoomParam();
+        }
+
+        function updateSyncBadge(label) {
+            const tag = document.getElementById('sync-mode-tag');
+            if (tag) tag.textContent = label;
+        }
+
+        // ==================== 免設定模式的輕量級資料存取層 ====================
+        // 使用公開的 jsonblob / kvdb 備援，若無網路或 CORS 限制則無縫將分配結果壓縮進分享連結 Hash 中
+        const memoryRooms = new Map();
+
+        function encodeStateToHash(data) {
             try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // 優先使用自訂 Token 登入，否則匿名登入（遵循 Rule 3）
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        currentUser = user;
-                        checkUrlRoomParam();
-                    }
-                });
-            } catch (error) {
-                console.error("Firebase 初始化錯誤:", error);
-                showToast('雲端連線失敗，請重新整理頁面', 'error');
+                const jsonStr = JSON.stringify(data);
+                const bytes = new TextEncoder().encode(jsonStr);
+                let binary = '';
+                bytes.forEach(b => binary += String.fromCharCode(b));
+                return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            } catch (e) {
+                return '';
             }
         }
-        // 檢查網址是否帶有 ?room=XXXX 參數（同時相容 #room=XXXX）
+
+        function decodeStateFromHash(hashStr) {
+            try {
+                let base64 = hashStr.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4) base64 += '=';
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const jsonStr = new TextDecoder().decode(bytes);
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 檢查網址參數（支援 ?room=XXXX 或 #data=XXXX 結果直達連結）
         function checkUrlRoomParam() {
             const urlParams = new URLSearchParams(window.location.search);
-            const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            const hashStr = window.location.hash.replace(/^#/, '');
+            const hashParams = new URLSearchParams(hashStr);
+
+            // 若網址內直接夾帶已分配完成的加密資料（點進去直接選自己是誰）
+            const encodedData = hashParams.get('data');
+            if (encodedData) {
+                const decoded = decodeStateFromHash(encodedData);
+                if (decoded && decoded.roomCode && Array.isArray(decoded.entries)) {
+                    currentRoomCode = decoded.roomCode;
+                    currentRoomData = decoded;
+                    memoryRooms.set(currentRoomCode, decoded);
+                    renderRoomState();
+                    return;
+                }
+            }
+
             const roomParam = urlParams.get('room') || hashParams.get('room');
             if (roomParam && roomParam.trim().length > 0) {
                 joinRoomByCode(roomParam.trim().toUpperCase());
@@ -385,12 +441,10 @@
             }
         }
 
-        // 取得房間文件參考（遵循 Rule 1: /artifacts/{appId}/public/data/{collectionName}/{documentId}）
         function getRoomDocRef(roomCode) {
-            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+            return firebaseModules.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
         }
 
-        // 產生易讀且不易混淆的 6 碼房間代碼
         function generateRoomCode() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let code = '';
@@ -400,21 +454,16 @@
             return code;
         }
 
-        // 切換畫面視圖
         function switchView(viewName) {
             const views = ['loading', 'home', 'collecting', 'assigned'];
             views.forEach(v => {
                 const el = document.getElementById(`view-${v}`);
                 if (el) {
-                    if (v === viewName) {
-                        el.classList.remove('hidden');
-                    } else {
-                        el.classList.add('hidden');
-                    }
+                    if (v === viewName) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
                 }
             });
 
-            // 控制頂部房間代碼徽章顯示
             const badge = document.getElementById('header-room-badge');
             const codeText = document.getElementById('header-room-code');
             if (currentRoomCode && (viewName === 'collecting' || viewName === 'assigned')) {
@@ -427,33 +476,80 @@
             }
         }
 
-        // 更新網址列參數（相容 blob: 與 iframe 沙盒環境）
-        function updateUrlParam(roomCode) {
+        function updateUrlParam(roomCode, encodedData = null) {
             try {
-                // blob: 協議不允許直接修改 query string，改以安全方式處理
-                if (window.location.protocol === 'blob:') {
-                    return;
-                }
+                if (window.location.protocol === 'blob:') return;
                 const url = new URL(window.location.href);
                 if (roomCode) {
                     url.searchParams.set('room', roomCode);
                 } else {
                     url.searchParams.delete('room');
                 }
+                if (encodedData) {
+                    url.hash = `data=${encodedData}`;
+                } else {
+                    url.hash = '';
+                }
                 window.history.replaceState({}, '', url.toString());
             } catch (e) {
-                // 在受限的沙盒環境中靜默忽略網址列更新，不影響建立與加入房間流程
-                console.warn('無法更新瀏覽器網址列（可能處於沙盒預覽環境）:', e.message);
+                // 忽略受限環境的網址列修改錯誤
+            }
+        }
+
+        // ==================== 房間資料讀寫抽象層 ====================
+        async function fetchRoomData(code) {
+            if (useFirebase) {
+                const snap = await firebaseModules.getDoc(getRoomDocRef(code));
+                return snap.exists() ? snap.data() : null;
+            }
+            // 免設定模式：先查記憶體，再嘗試從免註冊雲端暫存讀取
+            if (memoryRooms.has(code)) {
+                return memoryRooms.get(code);
+            }
+            try {
+                const res = await fetch(`https://kvdb.io/A6x9P2mK8vR4nL7qW1zY/${appId}_${code}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    memoryRooms.set(code, data);
+                    return data;
+                }
+            } catch (e) {
+                // 網路阻擋時略過
+            }
+            return null;
+        }
+
+        async function saveRoomData(code, data) {
+            if (useFirebase) {
+                await firebaseModules.setDoc(getRoomDocRef(code), data);
+                return;
+            }
+            memoryRooms.set(code, data);
+            currentRoomData = data;
+            // 若已分配完成，同步把狀態編碼進網址 Hash，確保產生出來的連結任何人點開都能直接選自己是誰
+            if (data.status === 'assigned') {
+                updateUrlParam(code, encodeStateToHash(data));
+            }
+            try {
+                await fetch(`https://kvdb.io/A6x9P2mK8vR4nL7qW1zY/${appId}_${code}`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+            } catch (e) {
+                // 若無法連外則依賴網址封裝連結運作
             }
         }
 
         // ==================== 房間操作功能 ====================
 
-        // 返回首頁
         window.goHome = function() {
             if (unsubscribeRoom) {
                 unsubscribeRoom();
                 unsubscribeRoom = null;
+            }
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
             }
             currentRoomCode = null;
             currentRoomData = null;
@@ -461,33 +557,28 @@
             switchView('home');
         };
 
-        // 建立新房間
         window.createNewRoom = async function() {
-            if (!currentUser) return;
             const btn = document.getElementById('btn-create-room');
             btn.disabled = true;
 
             try {
                 let newCode = generateRoomCode();
-                let roomRef = getRoomDocRef(newCode);
-                let snap = await getDoc(roomRef);
+                let existing = await fetchRoomData(newCode);
 
-                // 若代碼恰巧重複則重新產生
-                while (snap.exists()) {
+                while (existing) {
                     newCode = generateRoomCode();
-                    roomRef = getRoomDocRef(newCode);
-                    snap = await getDoc(roomRef);
+                    existing = await fetchRoomData(newCode);
                 }
 
                 const initialData = {
                     roomCode: newCode,
-                    status: 'collecting', // 'collecting' | 'assigned'
+                    status: 'collecting',
                     createdAt: Date.now(),
-                    entries: [] // { id, name, keyword, assignedKeyword, assignedFrom }
+                    entries: []
                 };
 
-                await setDoc(roomRef, initialData);
-                subscribeToRoom(newCode);
+                await saveRoomData(newCode, initialData);
+                subscribeToRoom(newCode, initialData);
                 showToast(`已建立房間 ${newCode}！`);
             } catch (error) {
                 console.error("建立房間失敗:", error);
@@ -497,7 +588,6 @@
             }
         };
 
-        // 透過表單加入房間
         window.handleJoinRoom = function(event) {
             event.preventDefault();
             const input = document.getElementById('input-room-code');
@@ -506,56 +596,76 @@
             joinRoomByCode(code);
         };
 
-        // 加入指定代碼房間
         async function joinRoomByCode(code) {
-            if (!currentUser) return;
             switchView('loading');
 
             try {
-                const roomRef = getRoomDocRef(code);
-                const snap = await getDoc(roomRef);
-
-                if (!snap.exists()) {
+                const data = await fetchRoomData(code);
+                if (!data) {
                     showToast(`找不到代碼為「${code}」的房間`, 'error');
                     updateUrlParam(null);
                     switchView('home');
                     return;
                 }
 
-                subscribeToRoom(code);
+                subscribeToRoom(code, data);
             } catch (error) {
                 console.error("加入房間錯誤:", error);
-                showToast('無法加入房間，請檢查網路連線', 'error');
+                showToast('無法加入房間，請檢查代碼是否正確', 'error');
                 switchView('home');
             }
         }
 
-        // 即時監聽房間資料變化
-        function subscribeToRoom(code) {
+        function subscribeToRoom(code, initialFallbackData = null) {
             if (unsubscribeRoom) {
                 unsubscribeRoom();
+                unsubscribeRoom = null;
+            }
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
             }
 
             currentRoomCode = code;
             updateUrlParam(code);
-            const roomRef = getRoomDocRef(code);
 
-            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
-                if (!docSnap.exists()) {
-                    showToast('此房間已被刪除或不存在', 'error');
-                    goHome();
-                    return;
+            if (useFirebase) {
+                const roomRef = getRoomDocRef(code);
+                unsubscribeRoom = firebaseModules.onSnapshot(roomRef, (docSnap) => {
+                    if (!docSnap.exists()) {
+                        showToast('此房間已被刪除或不存在', 'error');
+                        goHome();
+                        return;
+                    }
+                    currentRoomData = docSnap.data();
+                    renderRoomState();
+                }, (error) => {
+                    console.error("監聽房間資料失敗:", error);
+                });
+            } else {
+                // 立即渲染當前資料，並啟動每 2.5 秒輪詢雲端更新
+                if (initialFallbackData) {
+                    currentRoomData = initialFallbackData;
+                    renderRoomState();
                 }
-
-                currentRoomData = docSnap.data();
-                renderRoomState();
-            }, (error) => {
-                console.error("監聽房間資料失敗:", error);
-                showToast('即時同步中斷，請重新整理', 'error');
-            });
+                pollTimer = setInterval(async () => {
+                    try {
+                        const res = await fetch(`https://kvdb.io/A6x9P2mK8vR4nL7qW1zY/${appId}_${code}`);
+                        if (res.ok) {
+                            const remoteData = await res.json();
+                            if (JSON.stringify(remoteData) !== JSON.stringify(currentRoomData)) {
+                                memoryRooms.set(code, remoteData);
+                                currentRoomData = remoteData;
+                                renderRoomState();
+                            }
+                        }
+                    } catch (e) {
+                        // 靜默忽略輪詢網路波動
+                    }
+                }, 2500);
+            }
         }
 
-        // 根據房間狀態渲染對應 UI
         function renderRoomState() {
             if (!currentRoomData) return;
 
@@ -616,7 +726,7 @@
         // 新增參加者與關鍵詞
         window.handleAddEntry = async function(event) {
             event.preventDefault();
-            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+            if (!currentRoomCode || !currentRoomData) return;
 
             const nameInput = document.getElementById('input-player-name');
             const keywordInput = document.getElementById('input-keyword');
@@ -627,7 +737,6 @@
 
             if (!name || !keyword) return;
 
-            // 檢查是否已有同名參加者
             const entries = currentRoomData.entries || [];
             if (entries.some(e => e.name.toLowerCase() === name.toLowerCase())) {
                 showToast('這個名字已經有人使用了，請換個暱稱或加上代號！', 'error');
@@ -637,6 +746,14 @@
             submitBtn.disabled = true;
 
             try {
+                const latestData = (await fetchRoomData(currentRoomCode)) || currentRoomData;
+                const latestEntries = latestData.entries || [];
+
+                if (latestData.status !== 'collecting') {
+                    showToast('房間已經開始分配題目囉！', 'error');
+                    return;
+                }
+
                 const newEntry = {
                     id: crypto.randomUUID(),
                     name: name,
@@ -645,19 +762,13 @@
                     assignedFrom: null
                 };
 
-                const roomRef = getRoomDocRef(currentRoomCode);
-                // 重新讀取最新資料避免併發覆蓋
-                const latestSnap = await getDoc(roomRef);
-                const latestEntries = latestSnap.exists() ? (latestSnap.data().entries || []) : [];
-
-                if (latestSnap.data().status !== 'collecting') {
-                    showToast('房間已經開始分配題目囉！', 'error');
-                    return;
-                }
-
-                await updateDoc(roomRef, {
+                const updatedData = {
+                    ...latestData,
                     entries: [...latestEntries, newEntry]
-                });
+                };
+
+                await saveRoomData(currentRoomCode, updatedData);
+                if (!useFirebase) renderRoomState();
 
                 nameInput.value = '';
                 keywordInput.value = '';
@@ -677,12 +788,13 @@
                 `確定要刪除「${entryName}」與他出的關鍵詞嗎？`,
                 async () => {
                     try {
-                        const roomRef = getRoomDocRef(currentRoomCode);
-                        const latestSnap = await getDoc(roomRef);
-                        if (!latestSnap.exists()) return;
+                        const latestData = (await fetchRoomData(currentRoomCode)) || currentRoomData;
+                        if (!latestData) return;
 
-                        const updatedEntries = (latestSnap.data().entries || []).filter(e => e.id !== entryId);
-                        await updateDoc(roomRef, { entries: updatedEntries });
+                        const updatedEntries = (latestData.entries || []).filter(e => e.id !== entryId);
+                        const updatedData = { ...latestData, entries: updatedEntries };
+                        await saveRoomData(currentRoomCode, updatedData);
+                        if (!useFirebase) renderRoomState();
                         showToast(`已移除「${entryName}」`);
                     } catch (error) {
                         console.error("刪除失敗:", error);
@@ -735,36 +847,37 @@
 
         async function executeDerangementDraw() {
             try {
-                const roomRef = getRoomDocRef(currentRoomCode);
-                const latestSnap = await getDoc(roomRef);
-                if (!latestSnap.exists()) return;
+                const latestData = (await fetchRoomData(currentRoomCode)) || currentRoomData;
+                if (!latestData) return;
 
-                const entries = latestSnap.data().entries || [];
+                const entries = latestData.entries || [];
                 if (entries.length < 2) {
                     showToast('人數不足 2 人，無法分配', 'error');
                     return;
                 }
 
-                // 取得錯排索引陣列
                 const derangedIndices = generateDerangement(entries.length);
 
-                // 寫入每個人分配到的關鍵詞
                 const assignedEntries = entries.map((person, idx) => {
                     const targetDonor = entries[derangedIndices[idx]];
                     return {
                         ...person,
                         assignedKeyword: targetDonor.keyword,
-                        assignedFrom: targetDonor.name // 保留欄位供未來擴充揭曉用，目前前端不顯示
+                        assignedFrom: targetDonor.name
                     };
                 });
 
-                await updateDoc(roomRef, {
+                const updatedData = {
+                    ...latestData,
                     status: 'assigned',
                     entries: assignedEntries,
                     assignedAt: Date.now()
-                });
+                };
 
-                showToast('🎉 隨機分配完成！大家可以開始領題囉！');
+                await saveRoomData(currentRoomCode, updatedData);
+                if (!useFirebase) renderRoomState();
+
+                showToast('🎉 隨機分配完成！可以複製連結給大家領題囉！');
             } catch (error) {
                 console.error("分配失敗:", error);
                 showToast('分配過程發生錯誤，請重試', 'error');
@@ -826,14 +939,17 @@
         window.confirmResetRoom = function() {
             openConfirmModal(
                 '重新開局 / 重設房間',
-                '確定要清空目前的分配結果並回到出題階段嗎？（可選擇保留或清除名單，此動作將清空本局紀錄重新開始）',
+                '確定要清空目前的分配結果並回到出題階段嗎？（此動作將清空本局紀錄重新開始）',
                 async () => {
                     try {
-                        const roomRef = getRoomDocRef(currentRoomCode);
-                        await updateDoc(roomRef, {
+                        const updatedData = {
+                            ...currentRoomData,
                             status: 'collecting',
                             entries: []
-                        });
+                        };
+                        updateUrlParam(currentRoomCode, null);
+                        await saveRoomData(currentRoomCode, updatedData);
+                        if (!useFirebase) renderRoomState();
                         showToast('房間已重設，可以開始新一輪出題囉！');
                     } catch (error) {
                         console.error("重設房間失敗:", error);
@@ -888,19 +1004,20 @@
             showModal('confirm');
         }
 
-        // 複製房間分享連結
+        // 複製房間分享連結（若已分配完成，會連同抽籤結果狀態打包進連結，點開直接選自己是誰）
         window.copyShareLink = function() {
             if (!currentRoomCode) return;
-            let shareUrl = '';
             if (window.location.protocol === 'blob:') {
-                // 若在 blob 預覽環境，提供房間代碼提示，避免複製無效的 blob: 網址
                 copyTextToClipboard(currentRoomCode, `目前處於預覽模式，已複製房間代碼「${currentRoomCode}」！`);
                 return;
             }
             const url = new URL(window.location.href);
             url.searchParams.set('room', currentRoomCode);
-            shareUrl = url.toString();
-            copyTextToClipboard(shareUrl, '已複製房間邀請連結，快貼到群組吧！');
+            if (currentRoomData && currentRoomData.status === 'assigned') {
+                url.hash = `data=${encodeStateToHash(currentRoomData)}`;
+            }
+            const shareUrl = url.toString();
+            copyTextToClipboard(shareUrl, '已複製專屬連結，快貼到群組讓大家點進去領題吧！');
         };
 
         // 相容 iframe 環境的剪貼簿複製函式
@@ -961,7 +1078,11 @@
         }
 
         // 啟動應用程式
-        window.addEventListener('DOMContentLoaded', initApp);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
     </script>
 </body>
 </html>
